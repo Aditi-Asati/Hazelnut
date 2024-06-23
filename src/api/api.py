@@ -3,9 +3,9 @@ import uvicorn
 from pydantic import BaseModel
 from typing import Any
 
-from query_builder.db_connector import DBConnector
-from query_builder.query_executer import execute_query
-from query_builder.llm_integrator import ChatBot
+from src.query_builder.db_connector import DBConnector
+from src.query_builder.query_executer import execute_query
+from src.query_builder.llm_integrator import ChatBot
 
 app = FastAPI()
 
