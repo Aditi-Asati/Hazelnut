@@ -3,20 +3,22 @@ import uvicorn
 from pydantic import BaseModel
 from typing import Any
 
-from src.query_builder.db_connector import DBConnector
-from src.query_builder.query_executer import execute_query
-from src.query_builder.llm_integrator import ChatBot
+from query_builder.db_connector import DBConnector
+from query_builder.query_executer import execute_query
+from query_builder.llm_integrator import ChatBot
 
 app = FastAPI()
+
 
 class Item(BaseModel):
     data: dict[str, str]
 
 
 dbconnector = DBConnector(
-        host="localhost", user="root", password="oursql", port=3306, database="pokedex"
-    )
+    host="localhost", user="root", password="oursql", port=3306, database="pokedex"
+)
 chatbot = ChatBot()
+
 
 @app.get("/ping")
 def ping():
@@ -24,7 +26,7 @@ def ping():
 
 
 @app.post("/form")
-async def form(item : Item):
+async def form(item: Item):
     data = item.data
     host = data["host"]
     port = data["port"]
@@ -39,11 +41,10 @@ async def form(item : Item):
     #     raise DBConnectionError("Couldnt connect to the database, check credentials!")
 
 
-
 @app.post("/predict")
 async def predict(prompt: str):
     pass
-    
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)
