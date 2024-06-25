@@ -1,56 +1,68 @@
 from fastapi import FastAPI
 import uvicorn
 from pydantic import BaseModel
-from typing import Any
 
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import os
+import uuid
 
-from src.query_builder.db_connector import DBConnector
-from src.query_builder.query_executer import execute_query
+from src.query_builder.db_connector import DBConnector, DBConnectionError
+from src.query_builder.query_executer import execute_query, QueryExecutionFailed
 from src.query_builder.llm_integrator import ChatBot
+
+load_dotenv()
+
+uri = os.getenv("CONNECTION_STRING")
 
 app = FastAPI()
 
 
 class Item(BaseModel):
-    data: dict[str, str]
+    host: str
+    port: int
+    username: str
+    password: str
+    database: str
 
 
-dbconnector = DBConnector(
-    host="localhost", user="root", password="oursql", port=3306, database="pokedex"
-)
-chatbot = ChatBot()
-
-
-@app.get("/ping")
-def ping():
-    return "Hi! I am alive."
-
-
-@app.post("/form")
+@app.post("/submit")
 async def form(item: Item):
-    data = item.data
-    host = data["host"]
-    port = data["port"]
-    username = data["username"]
-    password = data["password"]
-    database = data["database"]
+    host = item.host
+    port = item.port
+    username = item.username
+    password = item.password
+    database = item.database
     dbconnector = DBConnector(host, username, password, int(port), database)
-    conn = dbconnector.connect_to_db()
-    client = MongoClient(uri, server_api=ServerApi("1"))
-    client.admin.command("ping")
-    return conn
-    #     return True
-    # except Exception:
-    #     raise DBConnectionError("Couldnt connect to the database, check credentials!")
+    try:
+        dbconnector.connect_to_db()
+
+    except Exception:
+        raise DBConnectionError("Couldn't connect to the database, check credentials!")
+
+    finally:
+        session_id = str(uuid.uuid4())
+        chatbot = ChatBot(dbconnector, session_id)
+        chatbot.store_session_data()
+        return {"session_id": session_id}
 
 
-@app.post("/predict")
-async def predict(prompt: str):
-    pass
+@app.post("/chat/{session_id}")
+async def chat(session_id: str, question: str, item: Item):
+    dbconnector = DBConnector(
+        item.host, item.username, item.password, int(item.port), item.database
+    )
+    chatbot = ChatBot(dbconnector, session_id)
+    answer = chatbot.generate_sql_query(question)
+    return {"answer": answer}
+
+
+@app.post("/execute")
+def execute(item: Item, sql_query: str):
+    dbconnector = DBConnector(
+        item.host, item.username, item.password, int(item.port), item.database
+    )
+    result, columns = execute_query(sql_query, dbconnector)
+    return {"result": result, "columns": columns}
 
 
 if __name__ == "__main__":

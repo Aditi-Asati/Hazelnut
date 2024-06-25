@@ -5,6 +5,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.llms import Ollama
 
 from tabulate import tabulate
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+import os
 
 from src.query_builder.db_connector import DBConnector
 from src.query_builder.context_generator import DDLCommandGenerator
@@ -13,7 +16,8 @@ from src.query_builder.query_executer import execute_query
 
 class ChatBot:
 
-    def __init__(self, dbconnector: DBConnector) -> None:
+    def __init__(self, dbconnector: DBConnector, session_id) -> None:
+        self.session_id = session_id
         self.context = DDLCommandGenerator(dbconnector).generate_ddl_command()
         self.llm = Ollama(model="llama3")
         self.output_parser = StrOutputParser()
@@ -44,16 +48,38 @@ class ChatBot:
             ]
         )
         self.chain = self.prompt_template | self.llm | self.output_parser
-        self.chat_history_list = []
+        # self.chat_history_list = []
+        uri = os.getenv("MONGODB_CONNECTION_STRING")
+        self.client = MongoClient(uri, server_api=ServerApi("1"))
+        self.db = self.client["Hazelnut"]
+        self.collection = self.db["Hazelnut_chats"]
+
+    def store_session_data(self):
+        session_data = {"session_id": self.session_id, "chat_history_list": []}
+        self.collection.insert_one(session_data)
+
 
     def generate_sql_query(self, question):
 
+        session_data = self.collection.find_one({"session_id": self.session_id})
+        chat_history_list = session_data["chat_history_list"]
         query = self.chain.invoke(
-            {"messages": self.chat_history_list + [HumanMessage(content=question)]}
+            {"messages": chat_history_list + [HumanMessage(content=question)]}
         )
-
-        self.chat_history_list.append(HumanMessage(content=question))
-        self.chat_history_list.append(AIMessage(content=query))
+        # query = self.chain.invoke(
+        #     {"messages": self.chat_history_list + [HumanMessage(content=question)]}
+        # )
+        result = self.collection.update_one(
+            {"session_id": self.session_id},
+            {
+                "$set": {
+                    "chat_history_list": chat_history_list
+                    + [HumanMessage(content=question), AIMessage(content=query)]
+                }
+            },
+        )
+        # self.chat_history_list.append(HumanMessage(content=question))
+        # self.chat_history_list.append(AIMessage(content=query))
 
         return query
 

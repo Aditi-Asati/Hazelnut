@@ -1,9 +1,13 @@
 import streamlit as st
 from streamlit_chat import message
 import requests
+import pandas as pd
 
 
-FASTAPI_FORM_ENDPOINT = ""
+FASTAPI_FORM_ENDPOINT = "http://localhost:8000/submit"
+FASTAPI_CHAT_ENDPOINT = "http://localhost:8000/chat"
+FASTAPI_EXECUTE_ENDPOINT = "http://localhost:8000/execute"
+
 # Setting page title and header
 st.set_page_config(page_title="AVA", page_icon=":robot_face:")
 st.markdown(
@@ -44,6 +48,7 @@ with st.sidebar:
         }
         response = requests.post(url=FASTAPI_FORM_ENDPOINT, data=data)
         if response.status_code == 200:
+            session_id = response.json()["session_id"]
             # st.warning("Please enter your credentials!", icon="⚠️")
             # else:
             st.success("Proceed to entering your prompt message!", icon="👉")
@@ -62,10 +67,16 @@ if clear_button:
 # generate a response
 def generate_response(prompt):
     st.session_state["messages"].append({"role": "user", "content": prompt})
-    response = f"let me answer to the question {prompt}"
+    payload = {
+        "question": prompt,
+        "item": data,  # Convert the Pydantic model to a dictionary
+    }
+    response = requests.post(FASTAPI_CHAT_ENDPOINT + f"/{session_id}", json=payload)
+    # response = f"let me answer to the question {prompt}"
     st.session_state["messages"].append({"role": "assistant", "content": response})
-
-    return response
+    response.raise_for_status()
+    if response.status_code == 200:
+        return response.json()["answer"]
 
 
 # container for chat history
@@ -96,8 +107,22 @@ if st.session_state["generated"]:
 
             with col1:
                 if st.button("Yes"):
-                    st.write(f"Executing action ")
+                    st.write(f"Executing query...")
+                    payload = {
+                        "query": output,
+                        "item": data,  # Convert the Pydantic model to a dictionary
+                            }
+                    response = requests.post(FASTAPI_EXECUTE_ENDPOINT, json=payload)
+                    response.raise_for_status()
+                    if response.status_code == 200:
+                        res = response.json()
+                        result = res["result"]
+                        columns = res["columns"]
+                        table = pd.DataFrame(result, columns=columns)
+                        st.dataframe(table)
+
+
 
             with col2:
                 if st.button("No"):
-                    st.write(f"No action taken ")
+                    # st.write(f"No action taken ")
