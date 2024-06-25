@@ -3,9 +3,19 @@ import uvicorn
 from pydantic import BaseModel
 from typing import Any
 
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+from dotenv import load_dotenv
+import os
+
 from query_builder.db_connector import DBConnector
 from query_builder.query_executer import execute_query
 from query_builder.llm_integrator import ChatBot
+
+
+load_dotenv()
+
+uri = os.getenv("CONNECTION_STRING")
 
 app = FastAPI()
 
@@ -35,6 +45,8 @@ async def form(item: Item):
     database = data["database"]
     dbconnector = DBConnector(host, username, password, int(port), database)
     conn = dbconnector.connect_to_db()
+    client = MongoClient(uri, server_api=ServerApi("1"))
+    client.admin.command("ping")
     return conn
     #     return True
     # except Exception:
