@@ -6,9 +6,9 @@ from langchain_community.llms import Ollama
 
 from tabulate import tabulate
 
-from db_connector import DBConnector
-from context_generator import DDLCommandGenerator
-from query_executer import execute_query
+from src.query_builder.db_connector import DBConnector
+from src.query_builder.context_generator import DDLCommandGenerator
+from src.query_builder.query_executer import execute_query
 
 
 class ChatBot:

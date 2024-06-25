@@ -8,14 +8,9 @@ from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import os
 
-from query_builder.db_connector import DBConnector
-from query_builder.query_executer import execute_query
-from query_builder.llm_integrator import ChatBot
-
-
-load_dotenv()
-
-uri = os.getenv("CONNECTION_STRING")
+from src.query_builder.db_connector import DBConnector
+from src.query_builder.query_executer import execute_query
+from src.query_builder.llm_integrator import ChatBot
 
 app = FastAPI()
 

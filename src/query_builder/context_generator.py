@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
-from db_connector import DBConnector, DBConnectionError
+from src.query_builder.db_connector import DBConnector, DBConnectionError
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,7 @@ class TableFieldDescriptor:
     keys = {"PRI": "PRIMARY KEY", "UNI": "UNIQUE"}
 
     def generate_create_field_stmt(self):
-        create_stmt = f"{self.field} {self.field_type} {"NOT NULL" if not self.null else ""} {self.keys[self.key] if self.key else ""} {f"DEFAULT {self.default}" if self.default else ""} {self.extra}".strip()
+        create_stmt = f"{self.field} {self.field_type} {'NOT NULL' if not self.null else ''} {self.keys[self.key] if self.key else ''} {f'DEFAULT {self.default}' if self.default else ''} {self.extra}".strip()
         return create_stmt
 
     @classmethod
