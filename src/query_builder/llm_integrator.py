@@ -9,6 +9,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import os
+import pickle
 
 from src.query_builder.db_connector import DBConnector
 from src.query_builder.context_generator import DDLCommandGenerator
@@ -28,7 +29,9 @@ class ChatBot:
         - **Deliberately go through the question and MYSQL database schema word by word** to appropriately answer the question
         - When creating a ratio, always cast the numerator as float
         - You only need to provide the SQL query, without any other text
-        - The query will be directly executed on the given database
+        - generated SQL query must end with semicolon ; and no other character like quotes etc
+        - produce SQL query such that it can be directly executed on the given database
+        - only respond to questions regarding the given database
 
 
         ### Input:
@@ -57,13 +60,16 @@ class ChatBot:
         self.collection = self.db["Hazelnut_chats"]
 
     def store_session_data(self):
-        session_data = {"session_id": self.session_id, "chat_history_list": []}
+        session_data = {
+            "session_id": self.session_id,
+            "chat_history_list": pickle.dumps([]),
+        }
         self.collection.insert_one(session_data)
 
-    def generate_sql_query(self, question):
+    def generate_sql_query(self, question: str):
 
         session_data = self.collection.find_one({"session_id": self.session_id})
-        chat_history_list = session_data["chat_history_list"]
+        chat_history_list = pickle.loads(session_data["chat_history_list"])
         query = self.chain.invoke(
             {"messages": chat_history_list + [HumanMessage(content=question)]}
         )
@@ -74,8 +80,10 @@ class ChatBot:
             {"session_id": self.session_id},
             {
                 "$set": {
-                    "chat_history_list": chat_history_list
-                    + [HumanMessage(content=question), AIMessage(content=query)]
+                    "chat_history_list": pickle.dumps(
+                        chat_history_list
+                        + [HumanMessage(content=question), AIMessage(content=query)]
+                    )
                 }
             },
         )

@@ -28,6 +28,8 @@ if "messages" not in st.session_state:
     ]
 if "session_id" not in st.session_state:
     st.session_state["session_id"] = []
+if "credentials" not in st.session_state:
+    st.session_state["credentials"] = []
 
 # session_id = None
 # Sidebar - let user choose model, show total cost of current conversation, and let user clear the current conversation
@@ -39,18 +41,19 @@ with st.sidebar:
     password = st.text_input("Enter the password", type="password")
     database_name = st.text_input("Enter the database name you wish to connect to:")
     submit_form_button = st.sidebar.button("Submit")
-    data = {
-        "host": host,
-        "port": port,
-        "username": username,
-        "password": password,
-        "database": database_name,
-    }
     # if submit_form_button(
     #     disabled=not (host and port and username and password and database_name)
     # ):
     if submit_form_button:
+        data = {
+            "host": host,
+            "port": port,
+            "username": username,
+            "password": password,
+            "database": database_name,
+        }
         data["port"] = int(data["port"])
+        st.session_state["credentials"].append(data)
         response = requests.post(url=FASTAPI_FORM_ENDPOINT, json=data)
         if response.status_code == 200:
             session_id = response.json()["session_id"]
@@ -76,7 +79,7 @@ def generate_response(prompt):
     st.session_state["messages"].append({"role": "user", "content": prompt})
     payload = {
         "question": prompt,
-        "item": data,  # Convert the Pydantic model to a dictionary
+        "credentials": st.session_state["credentials"][-1],
     }
     response = requests.post(
         FASTAPI_CHAT_ENDPOINT + "/" + st.session_state["session_id"][-1], json=payload
@@ -116,12 +119,13 @@ if st.session_state["generated"]:
             col1, col2, col3 = st.columns(3)
 
             with col1:
-                if st.button("Yes"):
-                    st.write(f"Executing SQL query...")
+                if st.button("Yes", key=f"button_yes_{i}"):
+                    st.write(f"Here is the output of the SQL query...")
                     payload = {
-                        "query": st.session_state["generated"][i],
-                        "item": data,  # Convert the Pydantic model to a dictionary
+                        "question": st.session_state["generated"][i],
+                        "credentials": st.session_state["credentials"][-1],
                     }
+                    print(payload)
                     response = requests.post(FASTAPI_EXECUTE_ENDPOINT, json=payload)
                     response.raise_for_status()
                     if response.status_code == 200:
@@ -129,13 +133,28 @@ if st.session_state["generated"]:
                         result = res["result"]
                         columns = res["columns"]
                         table = pd.DataFrame(result, columns=columns)
+                        st.markdown(
+                                    """
+                                    <style>
+                                    .center-table {
+                                        display: flex;
+                                        justify-content: center;
+                                    }
+                                    </style>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+
+                        # Wrap the dataframe in a div with the custom CSS class
+                        st.markdown('<div class="center-table">', unsafe_allow_html=True)
                         st.dataframe(table)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
             with col2:
-                if st.button("No"):
+                if st.button("No", key=f"button_no_{i}"):
                     pass
                     # st.write(f"No action taken ")
 
             with col3:
-                if st.button("Copy query"):
+                if st.button("Copy query", key=f"button_copy_{i}"):
                     pyperclip.copy(st.session_state["generated"][i])
