@@ -10,9 +10,9 @@ FASTAPI_CHAT_ENDPOINT = "http://localhost:8000/chat"
 FASTAPI_EXECUTE_ENDPOINT = "http://localhost:8000/execute"
 
 # Setting page title and header
-st.set_page_config(page_title="AVA", page_icon=":robot_face:")
+st.set_page_config(page_title="Hazelnut", page_icon=":robot_face:")
 st.markdown(
-    "<h1 style='text-align: center;'>Hazelnut- a helpful SQL chatbot </h1>",
+    "<h1 style='text-align: center;'>Hazelnut: Nutty Precision for your SQL Queries</h1>",
     unsafe_allow_html=True,
 )
 

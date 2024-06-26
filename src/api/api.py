@@ -83,9 +83,11 @@ def execute(input: ChatQuestion):
     try:
         result, columns = execute_query(sql_query, dbconnector)
         return {"result": result, "columns": columns}
+    except QueryExecutionFailed:
+        return {"result": "unable to execute this query", "columns": []}
     except Exception as e:
-        print(e)
-        raise QueryExecutionFailed("Query execution failed.")
+        logging.exception(e)
+        return {"result": "internal server error, please try again later", "columns": []}
 
 
 if __name__ == "__main__":
