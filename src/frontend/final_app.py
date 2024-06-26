@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit_chat import message
 import requests
 import pandas as pd
+import pyperclip
 
 
 FASTAPI_FORM_ENDPOINT = "http://localhost:8000/submit"
@@ -11,7 +12,7 @@ FASTAPI_EXECUTE_ENDPOINT = "http://localhost:8000/execute"
 # Setting page title and header
 st.set_page_config(page_title="AVA", page_icon=":robot_face:")
 st.markdown(
-    "<h1 style='text-align: center;'>AVA - a totally harmless chatbot 😬</h1>",
+    "<h1 style='text-align: center;'>Hazelnut- a helpful SQL chatbot </h1>",
     unsafe_allow_html=True,
 )
 
@@ -25,8 +26,10 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "system", "content": "You are a helpful assistant."}
     ]
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = []
 
-
+# session_id = None
 # Sidebar - let user choose model, show total cost of current conversation, and let user clear the current conversation
 with st.sidebar:
     st.title("MYSQL server credentials")
@@ -36,19 +39,23 @@ with st.sidebar:
     password = st.text_input("Enter the password", type="password")
     database_name = st.text_input("Enter the database name you wish to connect to:")
     submit_form_button = st.sidebar.button("Submit")
-    if submit_form_button(
-        disabled=not (host and port and username and password and database_name)
-    ):
-        data = {
-            "host": host,
-            "port": port,
-            "username": username,
-            "password": password,
-            "database": database_name,
-        }
-        response = requests.post(url=FASTAPI_FORM_ENDPOINT, data=data)
+    data = {
+        "host": host,
+        "port": port,
+        "username": username,
+        "password": password,
+        "database": database_name,
+    }
+    # if submit_form_button(
+    #     disabled=not (host and port and username and password and database_name)
+    # ):
+    if submit_form_button:
+        data["port"] = int(data["port"])
+        response = requests.post(url=FASTAPI_FORM_ENDPOINT, json=data)
         if response.status_code == 200:
             session_id = response.json()["session_id"]
+            st.session_state["session_id"].append(session_id)
+            # global session_id
             # st.warning("Please enter your credentials!", icon="⚠️")
             # else:
             st.success("Proceed to entering your prompt message!", icon="👉")
@@ -71,12 +78,15 @@ def generate_response(prompt):
         "question": prompt,
         "item": data,  # Convert the Pydantic model to a dictionary
     }
-    response = requests.post(FASTAPI_CHAT_ENDPOINT + f"/{session_id}", json=payload)
+    response = requests.post(
+        FASTAPI_CHAT_ENDPOINT + "/" + st.session_state["session_id"][-1], json=payload
+    )
     # response = f"let me answer to the question {prompt}"
     st.session_state["messages"].append({"role": "assistant", "content": response})
     response.raise_for_status()
     if response.status_code == 200:
-        return response.json()["answer"]
+        answer = response.json()["answer"]
+        return answer
 
 
 # container for chat history
@@ -103,15 +113,15 @@ if st.session_state["generated"]:
             st.write("\t\tDo you want to execute this query on your database?")
 
             # Use columns for layout control
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
 
             with col1:
                 if st.button("Yes"):
-                    st.write(f"Executing query...")
+                    st.write(f"Executing SQL query...")
                     payload = {
-                        "query": output,
+                        "query": st.session_state["generated"][i],
                         "item": data,  # Convert the Pydantic model to a dictionary
-                            }
+                    }
                     response = requests.post(FASTAPI_EXECUTE_ENDPOINT, json=payload)
                     response.raise_for_status()
                     if response.status_code == 200:
@@ -121,8 +131,11 @@ if st.session_state["generated"]:
                         table = pd.DataFrame(result, columns=columns)
                         st.dataframe(table)
 
-
-
             with col2:
                 if st.button("No"):
+                    pass
                     # st.write(f"No action taken ")
+
+            with col3:
+                if st.button("Copy query"):
+                    pyperclip.copy(st.session_state["generated"][i])

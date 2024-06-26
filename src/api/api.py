@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import logging
 import uvicorn
 from pydantic import BaseModel
 
@@ -12,12 +13,12 @@ from src.query_builder.llm_integrator import ChatBot
 
 load_dotenv()
 
-uri = os.getenv("CONNECTION_STRING")
+uri = os.getenv("NEW_MONGODB_CONNECTION_STRING")
 
 app = FastAPI()
 
 
-class Item(BaseModel):
+class DBCredentials(BaseModel):
     host: str
     port: int
     username: str
@@ -25,31 +26,43 @@ class Item(BaseModel):
     database: str
 
 
+class ChatQuestion(BaseModel):
+    question: str
+    credentials: DBCredentials
+
+
 @app.post("/submit")
-async def form(item: Item):
+def form(item: DBCredentials):
     host = item.host
     port = item.port
+    print(port)
     username = item.username
     password = item.password
     database = item.database
-    dbconnector = DBConnector(host, username, password, int(port), database)
+    dbconnector = DBConnector(host, username, password, port, database)
     try:
         dbconnector.connect_to_db()
 
-    except Exception:
+    except Exception as e:
+        print(e)
         raise DBConnectionError("Couldn't connect to the database, check credentials!")
 
-    finally:
-        session_id = str(uuid.uuid4())
-        chatbot = ChatBot(dbconnector, session_id)
-        chatbot.store_session_data()
-        return {"session_id": session_id}
+    session_id = str(uuid.uuid4())
+    chatbot = ChatBot(dbconnector, session_id)
+    chatbot.store_session_data()
+    return {"session_id": session_id}
 
 
 @app.post("/chat/{session_id}")
-async def chat(session_id: str, question: str, item: Item):
+def chat(session_id: str, input: ChatQuestion):
+    question = input.question
+    credentials = input.credentials
     dbconnector = DBConnector(
-        item.host, item.username, item.password, int(item.port), item.database
+        credentials.host,
+        credentials.username,
+        credentials.password,
+        credentials.port,
+        credentials.database,
     )
     chatbot = ChatBot(dbconnector, session_id)
     answer = chatbot.generate_sql_query(question)
@@ -57,12 +70,22 @@ async def chat(session_id: str, question: str, item: Item):
 
 
 @app.post("/execute")
-def execute(item: Item, sql_query: str):
+def execute(input: ChatQuestion):
+    sql_query = input.question
+    credentials = input.credentials
     dbconnector = DBConnector(
-        item.host, item.username, item.password, int(item.port), item.database
+        credentials.host,
+        credentials.username,
+        credentials.password,
+        credentials.port,
+        credentials.database,
     )
-    result, columns = execute_query(sql_query, dbconnector)
-    return {"result": result, "columns": columns}
+    try:
+        result, columns = execute_query(sql_query, dbconnector)
+        return {"result": result, "columns": columns}
+    except Exception as e:
+        print(e)
+        raise QueryExecutionFailed("Query execution failed.")
 
 
 if __name__ == "__main__":
