@@ -34,7 +34,7 @@ To get started with Hazelnut, follow these steps:
 1. **Clone the Repository**:
     ```bash
     git clone https://github.com/Aditi-Asati/Hazelnut.git
-    cd hazelnut
+    cd Hazelnut
     ```
 
 2. **Build Docker Image**:
