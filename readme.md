@@ -8,6 +8,7 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
+- [Project Demo](#project-demo)
 - [Features](#features)
 - [Installation](#installation)
 - [API Usage](#api-usage)
@@ -18,6 +19,11 @@
 ## Introduction
 
 Hazelnut is an LLM-powered SQL query builder and executer designed to simplify and automate database interactions. With Hazelnut, you can generate and execute SQL queries efficiently, making database management easier than ever.
+
+## Project Demo
+Here is a demonstration of Hazelnut in action:
+
+[![Hazelnut Demo](https://img.youtube.com/vi/5KhLWRgA0XA/0.jpg)](https://www.youtube.com/watch?v=5KhLWRgA0XA)
 
 ## Features
 
